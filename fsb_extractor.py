@@ -7,8 +7,8 @@ import hashlib
 import argparse
 import gzip
 import tempfile
-import io
 import mmap
+import contextlib
 
 if sys.version_info.major < 3:
     sys.stderr.write('Please use python 3. Your python version is as following:\n')
@@ -72,28 +72,35 @@ class ForeScoutBackupRecord(object):
 class ForeScoutBackupVolume(object):
 
     def __init__(self, file, verbose=False):
+        END_OF_HEADER = b"End_of_header\n"
+        END_OF_ELEMENT = b"End_of_elem\n"
+
         self.begin = 0
         with file as f:
-            contents = f.read()
-            headers, buf = contents.split(b"End_of_header\n")
-            filelist, contents = contents.split(b"End_of_elem\n")
-            if headers.find(b"ForeScout backup volume") != 0:
-                raise
-            if verbose:
-                print(headers.decode('utf-8'))
+            with contextlib.closing(mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)) as m:
+                header_end = m.find(END_OF_HEADER, 0)
+                element_end = m.find(END_OF_ELEMENT, header_end) 
+                header = m[0:header_end]
 
-        with tempfile.TemporaryFile(mode='w+b') as tmpfile:
-            with gzip.GzipFile(mode='rb', fileobj=io.BytesIO(contents)) as f:
-                tmpfile.write(f.read())
-                tmpfile.seek(0)
+                if header.find(b"ForeScout backup volume") != 0:
+                    raise
+                if verbose:
+                    print(header.decode('utf-8'))
 
-            self.data = mmap.mmap(tmpfile.fileno(), 0)
+                m.seek(element_end + len(END_OF_ELEMENT))
+                with tempfile.TemporaryFile(mode='w+b') as tmpfile:
+                    with gzip.GzipFile(mode='rb', fileobj=m) as f:
+                        tmpfile.write(f.read())
+                        tmpfile.seek(0)
+
+                    self.data = mmap.mmap(tmpfile.fileno(), 0, access=mmap.ACCESS_READ)
 
     def __iter__(self):
         return self
 
     def __next__(self):
         if self.begin >= self.data.size():
+            self.data.close()
             raise StopIteration()
 
         self.end = self.data.find(b'\n', self.begin)
