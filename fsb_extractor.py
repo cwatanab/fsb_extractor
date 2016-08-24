@@ -11,7 +11,7 @@ import io
 import mmap
 
 if sys.version_info.major < 3:
-    sys.stderr.write('Please use python 3.x. Your python version is as following:\n')
+    sys.stderr.write('Please use python 3. Your python version is as following:\n')
     sys.stderr.write('{}\n'.format(sys.version))
     sys.exit()
 
@@ -28,7 +28,7 @@ class Cli(object):
         self.args = parser.parse_args()
 
 
-class FsbRecord(object):
+class ForeScoutBackupRecord(object):
 
     def __init__(self, headers):
         self.type = headers[0].decode('utf-8')
@@ -69,7 +69,7 @@ class FsbRecord(object):
         return md5.digest()
 
 
-class FsbRecordSet(object):
+class ForeScoutBackupVolume(object):
 
     def __init__(self, file, verbose=False):
         self.begin = 0
@@ -98,7 +98,7 @@ class FsbRecordSet(object):
 
         self.end = self.data.find(b'\n', self.begin)
         headers = self.data[self.begin:self.end].split(b'\00')
-        record = FsbRecord(headers)
+        record = ForeScoutBackupRecord(headers)
         self.begin = self.end + len(b'\n')
 
         if record.type == 'file':
@@ -122,9 +122,9 @@ class FsbRecordSet(object):
 if __name__ == '__main__':
 
     args = Cli().args
-    fsb = FsbRecordSet(args.file, args.verbose)
+    fsbv = ForeScoutBackupVolume(args.file, args.verbose)
 
-    for f in fsb:
+    for f in fsbv:
         if args.type is not None and args.type.lower() != f.type:
             continue
         if args.category is not None and args.category.lower() != f.category:
