@@ -25,6 +25,7 @@ class Cli(object):
         parser.add_argument('-t', '--type', help="specific data type (file or table)")
         parser.add_argument('-c', '--category', help="specific category (os, plugin or config)")
         parser.add_argument('-o', '--overwrite', action='store_true', help="overwrite if file exists")
+        parser.add_argument('-n', '--dry-run', action='store_true')
         self.args = parser.parse_args()
 
 
@@ -83,7 +84,7 @@ class ForeScoutBackupVolume(object):
                 header = m[0:header_end]
 
                 if header.find(b"ForeScout backup volume") != 0:
-                    raise
+                    raise Exception("invalid file format")
                 if verbose:
                     print(header.decode('utf-8'))
 
@@ -138,7 +139,8 @@ if __name__ == '__main__':
             continue
         if args.verbose:
             print(f)
-        f.save(args.overwrite)
+        if not args.dry_run:
+            f.save(args.overwrite)
 
     sys.exit()
 
